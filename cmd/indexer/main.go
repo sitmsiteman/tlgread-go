@@ -31,7 +31,9 @@ func main() {
 
 	for {
 		line, err := reader.ReadString('\n')
-		if err != nil { break }
+		if err != nil {
+			break
+		}
 
 		if strings.Contains(line, "<div2") {
 			match := re.FindStringSubmatch(line)
@@ -50,4 +52,3 @@ func main() {
 	}
 	fmt.Println("Done! lsj.idt created.")
 }
-

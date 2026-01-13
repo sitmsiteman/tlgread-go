@@ -17,11 +17,17 @@ var diacritics = map[rune]string{
 	')': "\u0313", '(': "\u0314", '/': "\u0301", '\\': "\u0300",
 	'=': "\u0342", '+': "\u0308", '|': "\u0345",
 }
+var alphaBase = map[rune]string{
+	'α': "a", 'β': "b", 'γ': "g", 'δ': "d", 'ε': "e", 'ζ': "z", 'η': "h", 'θ': "q",
+	'ι': "i", 'κ': "k", 'λ': "l", 'μ': "m", 'ν': "n", 'ξ': "c", 'ο': "o", 'π': "p",
+	'ρ': "r", 'σ': "s", 'ς': "s", 'τ': "t", 'υ': "u", 'φ': "f", 'χ': "x", 'ψ': "y", 'ω': "w",
+	'ά': "a/", 'έ': "e/", 'ή': "h/", 'ί': "i/", 'ό': "o/", 'ύ': "u/", 'ώ': "w/",
+}
 
 func ToGreek(s string) string {
 	var out bytes.Buffer
 	upper := false
-	
+
 	// Cleanup artifacts
 	s = regexp.MustCompile(`@\{.*?\}`).ReplaceAllString(s, "")
 	s = regexp.MustCompile(`[\[\]%$]\d*`).ReplaceAllString(s, "")
@@ -51,6 +57,7 @@ func ToGreek(s string) string {
 		}
 	}
 	res := out.String()
+	// Hacky but works
 	res = strings.ReplaceAll(res, "><", ">>")
 	res = regexp.MustCompile(`σ(\s|[[:punct:]]|$)`).ReplaceAllString(res, "ς$1")
 	return res
@@ -58,15 +65,9 @@ func ToGreek(s string) string {
 
 func ToBetaCode(s string) string {
 	var out strings.Builder
-	m := map[rune]string{
-		'α': "a", 'β': "b", 'γ': "g", 'δ': "d", 'ε': "e", 'ζ': "z", 'η': "h", 'θ': "q",
-		'ι': "i", 'κ': "k", 'λ': "l", 'μ': "m", 'ν': "n", 'ξ': "c", 'ο': "o", 'π': "p",
-		'ρ': "r", 'σ': "s", 'ς': "s", 'τ': "t", 'υ': "u", 'φ': "f", 'χ': "x", 'ψ': "y", 'ω': "w",
-		'ά': "a/", 'έ': "e/", 'ή': "h/", 'ί': "i/", 'ό': "o/", 'ύ': "u/", 'ώ': "w/",
-	}
 	for _, r := range s {
 		lower := unicode.ToLower(r)
-		if val, ok := m[lower]; ok {
+		if val, ok := alphaBase[lower]; ok {
 			out.WriteString(val)
 		} else {
 			out.WriteRune(r)
@@ -74,4 +75,3 @@ func ToBetaCode(s string) string {
 	}
 	return out.String()
 }
-
