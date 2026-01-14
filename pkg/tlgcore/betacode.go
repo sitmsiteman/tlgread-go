@@ -42,6 +42,7 @@ var bcmHandlers = map[rune]bcmHandler{
 	'&': handleLatin,
 	'@': handlePageFormatting,
 	'{': handleMarkupText,
+	'}': handleEndMarkupText, // Do I need this?
 	'<': handleTextFormatting,
 	'"': handleQuotation,
 	'[': handleOpenBracket,
@@ -117,7 +118,20 @@ func handleMarkupText(runes []rune, start int, out *bytes.Buffer, isLat bool, in
 	case "{70": // TLG Editorial Text
 		isLatin = true
 	default:
-		isLatin = false
+	}
+
+	return nextIdx, isLatin, inQuot
+}
+
+// }
+func handleEndMarkupText(runes []rune, start int, out *bytes.Buffer, isLat bool, inQuo bool) (newIdx int, isLatin bool, inQuot bool) {
+	command, nextIdx := parseCommand(runes, start)
+
+	inQuot = inQuo
+	isLatin = isLat
+
+	switch command {
+	default:
 	}
 
 	return nextIdx, isLatin, inQuot
@@ -386,6 +400,39 @@ func ToGreek(s string) string {
 	res = regexp.MustCompile(`σ(\s|[[:punct:]]|$)`).ReplaceAllString(res, "ς$1")
 	res = norm.NFC.String(res)
 	return res
+}
+
+func ToLatin(s string) string {
+	var out bytes.Buffer
+
+	isLatin := true
+	inQuot := false
+
+	runes := []rune(s)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+
+		// TLG/PHI metadata uses bytes < 32 or > 127 for level updates.
+		if r < 32 || r > 126 {
+			continue
+		}
+
+		if r == '`' {
+			continue
+		}
+
+		if handler, exists := bcmHandlers[r]; exists {
+			nextIdx, _, quotState := handler(runes, i, &out, isLatin, inQuot)
+			i = nextIdx
+			inQuot = quotState
+			isLatin = true
+			continue
+		}
+
+		out.WriteRune(r)
+	}
+
+	return out.String()
 }
 
 func ToBetaCode(s string) string {

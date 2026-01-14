@@ -26,6 +26,7 @@ type Parser struct {
 	Levels map[string]*IDState
 	Buffer []byte
 	Pos    int
+	IsLatinFile bool
 }
 
 func NewParser(f *os.File) *Parser {
@@ -38,6 +39,13 @@ func NewParser(f *os.File) *Parser {
 		p.Levels[k] = &IDState{}
 	}
 	return p
+}
+
+func (p *Parser) ProcessText(s string) string {
+    if p.IsLatinFile {
+        return ToLatin(s)
+    }
+    return ToGreek(s)
 }
 
 func (p *Parser) Run(targetWorkID string, listMode bool, idtTitles map[string]string) {
@@ -92,10 +100,10 @@ func (p *Parser) Run(targetWorkID string, listMode bool, idtTitles map[string]st
 				}
 			} else {
 				if currentID == targetInt {
-					greek := ToGreek(text)
-					if strings.TrimSpace(greek) != "" {
+					output := p.ProcessText(text)
+					if strings.TrimSpace(output) != "" {
 						cit := p.formatCitation()
-						fmt.Printf("%-10s %s\n", cit, greek)
+						fmt.Printf("%-10s %s\n", cit, output)
 					}
 				}
 			}
@@ -308,3 +316,4 @@ func (p *Parser) formatCitation() string {
 	}
 	return strings.Join(pts, ".")
 }
+

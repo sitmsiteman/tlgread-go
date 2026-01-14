@@ -103,5 +103,10 @@ func main() {
 	}
 
 	p := tlgcore.NewParser(f)
+
+	if strings.HasPrefix(strings.ToUpper(base), "LAT") {
+		p.IsLatinFile = true
+	}
+
 	p.Run(*wID, *list, titles)
 }
