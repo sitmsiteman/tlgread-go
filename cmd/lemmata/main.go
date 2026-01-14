@@ -4,19 +4,17 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
+	"tlgread/pkg/tlgcore"
 )
 
 type LemmaInfo struct {
 	Lemma string
-	ID    string
 	Forms []string
 }
 
-// FindFormsByLemma searches greek-lemmata.txt for a headword
-func FindFormsByLemma(filePath, targetLemma string) (*LemmaInfo, error) {
+func findForms(filePath, targetLemma string) (*LemmaInfo, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -24,21 +22,25 @@ func FindFormsByLemma(filePath, targetLemma string) (*LemmaInfo, error) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		// Format: lemma    ID    form1 (morph)    form2 (morph)...
 		parts := strings.Split(line, "\t")
+
 		if len(parts) < 3 {
 			continue
 		}
 
 		lemma := strings.TrimSpace(parts[0])
 		if lemma == targetLemma {
+			allForms := parts[2:]
 			return &LemmaInfo{
 				Lemma: lemma,
-				ID:    parts[1],
-				// The third part contains all forms and their morph data
-				Forms: strings.Split(parts[2], "\t"),
+				Forms: allForms,
 			}, nil
 		}
 	}
@@ -48,34 +50,33 @@ func FindFormsByLemma(filePath, targetLemma string) (*LemmaInfo, error) {
 
 func main() {
 
-	fPath := flag.String("f", "greek-lemmata.txt", "filename")
+	fPath := flag.String("f", "greek-lemmata.txt", "file path for greek-lemmata.txt")
 	word := flag.String("w", "", "word")
 	flag.Parse()
 
-	if *fPath == "" {
-		log.Fatal("Usage: ./lemmata -f greek-lemmata.txt")
-	}
-
-	f, err := os.Open(*fPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
 	filePath := *fPath
 
-	// Example: Get all forms for the adverb "a(/dhn"
-	info, err := FindFormsByLemma(filePath, *word)
+	searchWord := *word
+	for _, r := range *word {
+		if r > 127 { // Simple check for non-ASCII
+			searchWord = tlgcore.ToBetaCode(*word)
+			break
+		}
+	}
+
+	info, err := findForms(filePath, searchWord)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	fmt.Printf("Lemma: %s (ID: %s)\n", info.Lemma, info.ID)
+	fmt.Printf("Lemma: %s\n", tlgcore.ToGreek(info.Lemma))
 	fmt.Println("Known inflections and variants:")
 	for _, f := range info.Forms {
 		if f != "" {
-			fmt.Printf(" - %s\n", strings.TrimSpace(f))
+			form := strings.Split(f, " ")
+			analysis := strings.Join(form[1:], " ")
+			fmt.Printf(" - %s %s\n", tlgcore.ToGreek(form[0]), strings.TrimSpace(analysis))
 		}
 	}
 }
