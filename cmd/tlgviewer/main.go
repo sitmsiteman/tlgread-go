@@ -63,11 +63,12 @@ func getTitlesFromIDT(path string) map[string]string {
 			}
 
 			rawTitle := string(data[i+3 : i+3+length])
-
-			// Keep Latin titles as is, convert only if Beta Code (contains *)
 			cleanTitle := rawTitle
+
 			if strings.Contains(rawTitle, "*") {
 				cleanTitle = tlgcore.ToGreek(rawTitle)
+			} else {
+				cleanTitle = tlgcore.ToLatin(rawTitle)
 			}
 
 			if currentID != "" {

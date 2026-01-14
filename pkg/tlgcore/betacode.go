@@ -352,11 +352,6 @@ func ToGreek(s string) string {
 	isLatin := false
 	inQuot := false
 
-	// Cleanup artifacts
-	//s = regexp.MustCompile(`@\{.*?\}`).ReplaceAllString(s, "")
-	//s = strings.ReplaceAll(s, "-", " ")
-	//s = strings.ReplaceAll(s, "1", "")
-
 	runes := []rune(s)
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]

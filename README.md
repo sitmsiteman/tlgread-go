@@ -60,10 +60,9 @@ Run `build.rc`.
 
 ## Caveats & Bugs
 
-- TLG directory should have lowercase filenames (including extensions).
+- TLG files should have lowercase filenames (including extensions).
 
 - Only tested against Aristotle and Plato datasets.
 
 - Bekker pagination output may contain a leading "1.1." prefix.
 
-- Some of the entries in Aristotle are skipped when use `readauth`.
