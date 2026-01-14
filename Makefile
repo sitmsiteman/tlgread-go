@@ -5,6 +5,7 @@ all:
 	go build -o bin/readauth ./cmd/readauth
 	go build -o bin/lemmata ./cmd/lemmata
 
+	cd dependencies && ../bin/indexer
 index:
 	bin/indexer dependencies/grc.lsj.xml
 
