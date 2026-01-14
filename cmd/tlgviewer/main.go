@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"tlgread/pkg/tlgcore"
 )
@@ -19,12 +18,44 @@ func getTitlesFromIDT(path string) map[string]string {
 		return m
 	}
 
-	idCounter := 1
-	for i := 0; i < len(data)-3; i++ {
-		// Signature: 10 01 (Description for Work Level)
+	currentID := ""
+
+	for i := 0; i < len(data)-10; i++ {
+
+		// Work ID
+		// Spec: 02 [Len:2] [Block:2] EF 81 [ASCII-HighBit...] FF
+		// We look for the sequence: 02 ?? ?? ?? ?? EF 81
+		if data[i] == 0x02 && data[i+5] == 0xEF && data[i+6] == 0x81 {
+			// The ID string starts at i+7 and ends at 0xFF
+			start := i + 7
+			end := start
+			for end < len(data) && data[end] != 0xFF {
+				end++
+			}
+
+			if end < len(data) {
+				// Extract high-bit bytes and convert to ASCII
+				// e.g., 0xB0 -> '0'
+				var idBytes []byte
+				for k := start; k < end; k++ {
+					idBytes = append(idBytes, data[k]&0x7F)
+				}
+
+				// Normalize: "040" -> "40", "001" -> "1"
+				currentID = tlgcore.NormalizeID(string(idBytes))
+
+				// Advance loop past this block
+				i = end
+				continue
+			}
+		}
+
+		// WORK TITLE (Type 0x10)
+		// Spec: 10 01 [Len:1] [TitleString]
+		// 0x10 = Description, 0x01 = Level 'b' (Work)
 		if data[i] == 0x10 && data[i+1] == 0x01 {
 			length := int(data[i+2])
-			if length == 0 || length > 200 {
+			if length == 0 || length > 250 {
 				continue
 			}
 			if i+3+length > len(data) {
@@ -39,8 +70,9 @@ func getTitlesFromIDT(path string) map[string]string {
 				cleanTitle = tlgcore.ToGreek(rawTitle)
 			}
 
-			m[strconv.Itoa(idCounter)] = cleanTitle
-			idCounter++
+			if currentID != "" {
+				m[currentID] = cleanTitle
+			}
 
 			i += 2 + length
 		}
