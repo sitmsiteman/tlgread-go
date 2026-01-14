@@ -14,8 +14,6 @@ import (
 	"tlgread/pkg/tlgcore"
 )
 
-// --- DATA STRUCTURES ---
-
 type MorphResult struct {
 	Form       string
 	Lemma      string
@@ -270,13 +268,12 @@ func main() {
 		}
 	}
 
-	index, keys, _ := LoadIndex(*idtPath) // Use your existing loader
+	index, keys, _ := LoadIndex(*idtPath)
 	idx := sort.SearchStrings(keys, searchWord)
 	if idx > 0 {
 		idx -= 1
 	}
 
-	// Try scanning blocks with your fix
 	var results []MorphResult
 	var err error
 	for i := 0; i < 3; i++ {
