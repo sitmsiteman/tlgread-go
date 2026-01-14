@@ -52,7 +52,11 @@ For faster search speeds, run `make index` before using `search`.
 
 ## Build
 
+### Unix
 Run `make all` and `make index`.
+
+### 9front
+Run `build.rc`.
 
 ## Caveats & Bugs
 
