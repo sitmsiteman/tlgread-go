@@ -179,7 +179,7 @@ func lookupLSJ(xmlPath string, rawLemma string, lsjIndex map[string]int64, seenO
 			seenOffsets[offset] = true
 
 			fmt.Printf("\n[ENTRY: %s]\n", tlgcore.ToGreek(entry.Key))
-			fmt.Printf("%s\n",processSense(entry.Sense))
+			fmt.Printf("%s\n", processSense(entry.Sense))
 		}
 	}
 }
@@ -308,4 +308,3 @@ func main() {
 		}
 	}
 }
-
