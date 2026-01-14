@@ -30,14 +30,14 @@ fn worklist{
         if (~ $1 PHI)
                 $EXECROOT/bin/tlgviewer -f $PHIROOT/'lat'$2'.txt' -list
         if not
-                $EXECROOT/bin/tlgviewer -f $TLGROOT/'TLG'$2'.txt' -list
+                $EXECROOT/bin/tlgviewer -f $TLGROOT/'tlg'$2'.txt' -list
 }
 
 fn readwork{
         if (~ $1 PHI)
                 $EXECROOT/bin/tlgviewer -f $PHIROOT/'lat'$2'.txt' -w $3
         if not
-                $EXECROOT/bin/tlgviewer -f $TLGROOT/'TLG'$2'.txt' -w $3
+                $EXECROOT/bin/tlgviewer -f $TLGROOT/'tlg'$2'.txt' -w $3
 }
 
 fn search{
