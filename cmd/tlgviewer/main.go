@@ -94,7 +94,7 @@ func getAuthorName(path, tlgID string) string {
 		return "Unknown"
 	}
 
-	cleanID := fmt.Sprintf("%s%04s", prefixID ,strings.TrimPrefix(strings.ToUpper(tlgID), prefixID))
+	cleanID := fmt.Sprintf("%s%04s", prefixID, strings.TrimPrefix(strings.ToUpper(tlgID), prefixID))
 	re := regexp.MustCompile(fmt.Sprintf(`(?s)%s.*?&1(.*?)&`, cleanID))
 	m := re.FindSubmatch(data)
 	if len(m) > 1 {

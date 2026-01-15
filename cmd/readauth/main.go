@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"os"
 	"log"
+	"os"
 	"strings"
 )
 

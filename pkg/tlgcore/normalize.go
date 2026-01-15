@@ -15,7 +15,6 @@ func NormalizeLatin(s string) string {
 	return strings.ToLower(re.ReplaceAllString(s, ""))
 }
 
-
 func NormalizeStrict(s string) string {
 	fields := strings.Fields(s)
 	if len(fields) == 0 {

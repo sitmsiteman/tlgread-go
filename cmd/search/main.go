@@ -22,9 +22,9 @@ type MorphResult struct {
 }
 
 type LSJEntry struct {
-	Key     string   `xml:"key,attr"`
-	Orth    string   `xml:"orth"`
-	Sense   string   `xml:",innerxml"`
+	Key   string `xml:"key,attr"`
+	Orth  string `xml:"orth"`
+	Sense string `xml:",innerxml"`
 }
 
 func LoadIndex(idtPath string) (map[string]int64, []string, error) {
