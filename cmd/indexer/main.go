@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"bufio"
 	"fmt"
 	"os"
@@ -10,8 +11,13 @@ import (
 )
 
 func main() {
-	xmlPath := "grc.lsj.xml"
-	indexPath := "lsj.idt"
+
+        xPath := flag.String("f", "grc.lsj.xml", "file path for dictionary xml file")
+        iPath := flag.String("o", "lsj.idt", "file path for export index file")
+        flag.Parse()
+
+        xmlPath := *xPath
+	indexPath := *iPath
 
 	f, err := os.Open(xmlPath)
 	if err != nil {
@@ -27,7 +33,7 @@ func main() {
 	var offset int64
 	re := regexp.MustCompile(`key="([^"]+)"`)
 
-	fmt.Println("Indexing LSJ... this may take a few seconds.")
+	fmt.Println("Indexing", xmlPath, "... this may take a few seconds.")
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -35,7 +41,7 @@ func main() {
 			break
 		}
 
-		if strings.Contains(line, "<div2") {
+		if strings.HasPrefix(line, "<div2") {
 			match := re.FindStringSubmatch(line)
 			if len(match) > 1 {
 				rawKey := match[1]
@@ -48,7 +54,17 @@ func main() {
 				}
 			}
 		}
+
+		if strings.HasPrefix(line, "<div1") {
+			match := re.FindStringSubmatch(line)
+			if len(match) > 1 {
+				rawKey := match[1]
+				strictKey := tlgcore.NormalizeLatin(rawKey)
+
+				fmt.Fprintf(out, "'%s' => %d\n", strictKey, offset)
+			}
+		}
 		offset += int64(len(line))
 	}
-	fmt.Println("Done! lsj.idt created.")
+	fmt.Println("Done!", indexPath, "created.")
 }

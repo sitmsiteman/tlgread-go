@@ -22,7 +22,6 @@ type MorphResult struct {
 }
 
 type LSJEntry struct {
-	XMLName xml.Name `xml:"div2"`
 	Key     string   `xml:"key,attr"`
 	Orth    string   `xml:"orth"`
 	Sense   string   `xml:",innerxml"`
@@ -105,9 +104,17 @@ func FindLemmaIndexed(filePath string, offset int64, searchForm string) ([]Morph
 	return nil, fmt.Errorf("not found")
 }
 
-func lookupLSJ(xmlPath string, rawLemma string, lsjIndex map[string]int64, seenOffsets map[int64]bool) {
+func lookupLSJ(xmlPath string, rawLemma string, lsjIndex map[string]int64, seenOffsets map[int64]bool, isLSJ bool) {
+	var strictKey string
+
 	lemma := strings.Fields(rawLemma)[0]
-	strictKey := tlgcore.NormalizeStrict(lemma)
+
+	if isLSJ {
+		strictKey = tlgcore.NormalizeStrict(lemma)
+	} else {
+		strictKey = tlgcore.NormalizeLatin(lemma)
+	}
+
 	fuzzyKey := tlgcore.NormalizeFuzzy(lemma)
 
 	var offsets []int64
@@ -125,7 +132,7 @@ func lookupLSJ(xmlPath string, rawLemma string, lsjIndex map[string]int64, seenO
 		addUnique(val)
 	}
 
-	// Check numbered keys (e.g., "legw2", "legw3", ...)
+	// Check numbered keys (e.g., "legw2", "legw3", ...) ... Do we need this?
 	for i := 2; ; i++ {
 		key := strictKey + strconv.Itoa(i)
 		val, ok := lsjIndex[key]
@@ -134,6 +141,7 @@ func lookupLSJ(xmlPath string, rawLemma string, lsjIndex map[string]int64, seenO
 		}
 		addUnique(val)
 	}
+
 	if len(offsets) == 0 {
 		if val, ok := lsjIndex[fuzzyKey]; ok {
 			addUnique(val)
@@ -176,7 +184,11 @@ func lookupLSJ(xmlPath string, rawLemma string, lsjIndex map[string]int64, seenO
 
 			seenOffsets[offset] = true
 
-			fmt.Printf("\n[ENTRY: %s]\n", tlgcore.ToGreek(entry.Key))
+			if isLSJ {
+				fmt.Printf("\n[ENTRY: %s]\n", tlgcore.ToGreek(entry.Key))
+			} else {
+				fmt.Printf("\n[ENTRY: %s]\n", entry.Key)
+			}
 			fmt.Printf("%s\n", processSense(entry.Sense))
 		}
 	}
@@ -250,11 +262,12 @@ func processSense(rawXml string) string {
 
 func main() {
 	wordRaw := flag.String("w", "", "word in Beta Code / Greek")
-	lsjPath := flag.String("lsj", "grc.lsj.xml", "LSJ XML path")
+	lsjPath := flag.String("dic", "grc.lsj.xml", "LSJ XML path")
 	idtPath := flag.String("idt", "greek-analyses.idt", "idt file")
 	analPath := flag.String("a", "greek-analyses.txt", "analyses txt file")
-	lsjidtPath := flag.String("lsjidt", "lsj.idt", "LSJ idt file")
-	printdic := flag.Bool("dic", true, "print LSJ entries or not")
+	lsjidtPath := flag.String("dicidt", "lsj.idt", "LSJ idt file")
+	printdic := flag.Bool("entry", true, "print dictionary entries or not")
+	isLatin := flag.Bool("lat", false, "use L-S dictionary")
 
 	flag.Parse()
 
@@ -297,11 +310,15 @@ func main() {
 	for _, r := range results {
 		// 1. Print Morphology
 		lemmaDisplay := strings.Fields(r.Lemma)[0]
-		fmt.Printf("Greek: %s | Lemma: %s (%s)\n", tlgcore.ToGreek(searchWord), tlgcore.ToGreek(lemmaDisplay), r.Morphology)
+		if !*isLatin {
+			fmt.Printf("Greek: %s | Lemma: %s (%s)\n", tlgcore.ToGreek(searchWord), tlgcore.ToGreek(lemmaDisplay), r.Morphology)
+		} else {
+			fmt.Printf("Latin: %s | Lemma: %s (%s)\n", searchWord, lemmaDisplay, r.Morphology)
+		}
 	}
 	if *printdic == true {
 		for _, r := range results {
-			lookupLSJ(*lsjPath, r.Lemma, lsjIndex, seenLSJEntries)
+			lookupLSJ(*lsjPath, r.Lemma, lsjIndex, seenLSJEntries, !*isLatin)
 		}
 	}
 }
