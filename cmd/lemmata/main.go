@@ -52,6 +52,7 @@ func main() {
 
 	fPath := flag.String("f", "greek-lemmata.txt", "file path for greek-lemmata.txt")
 	word := flag.String("w", "", "word")
+	isLatin := flag.Bool("l", false, "Search for latin words")
 	flag.Parse()
 
 	filePath := *fPath
@@ -70,13 +71,21 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Lemma: %s\n", tlgcore.ToGreek(info.Lemma))
+	if !*isLatin {
+		fmt.Printf("Lemma: %s\n", tlgcore.ToGreek(info.Lemma))
+	} else {
+		fmt.Printf("Lemma: %s\n", info.Lemma)
+	}
 	fmt.Println("Known inflections and variants:")
 	for _, f := range info.Forms {
 		if f != "" {
 			form := strings.Split(f, " ")
 			analysis := strings.Join(form[1:], " ")
-			fmt.Printf(" - %s %s\n", tlgcore.ToGreek(form[0]), strings.TrimSpace(analysis))
+			if !*isLatin {
+				fmt.Printf(" - %s %s\n", tlgcore.ToGreek(form[0]), strings.TrimSpace(analysis))
+			} else {
+				fmt.Printf(" - %s %s\n", form[0], strings.TrimSpace(analysis))
+			}
 		}
 	}
 }
