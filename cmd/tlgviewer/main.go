@@ -82,11 +82,19 @@ func getTitlesFromIDT(path string) map[string]string {
 }
 
 func getAuthorName(path, tlgID string) string {
+	var prefixID string
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "Unknown"
 	}
-	cleanID := fmt.Sprintf("TLG%04s", strings.TrimPrefix(strings.ToUpper(tlgID), "TLG"))
+
+	if len(tlgID) >= 3 {
+		prefixID = strings.ToUpper(tlgID[:3])
+	} else {
+		return "Unknown"
+	}
+
+	cleanID := fmt.Sprintf("%s%04s", prefixID ,strings.TrimPrefix(strings.ToUpper(tlgID), prefixID))
 	re := regexp.MustCompile(fmt.Sprintf(`(?s)%s.*?&1(.*?)&`, cleanID))
 	m := re.FindSubmatch(data)
 	if len(m) > 1 {
