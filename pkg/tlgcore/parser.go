@@ -96,7 +96,7 @@ func (p *Parser) Run(targetWorkID string, listMode bool, idtTitles map[string]st
 					if title == "" {
 						title = "(Unknown Title)"
 					}
-					fmt.Printf("ID %-4s | %s\n", workIDStr, title)
+					fmt.Printf("ID:%-4s | %s\n", workIDStr, title)
 				}
 			} else {
 				if currentID == targetInt {
