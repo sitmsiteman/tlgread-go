@@ -452,6 +452,9 @@ func ToGreek(s string) string {
 	isLatin := false
 	inQuot := false
 
+	var pDiacritics string
+	wasBase := false
+
 	runes := []rune(s)
 	for i := 0; i < len(runes); i++ {
 		r := runes[i]
@@ -471,6 +474,8 @@ func ToGreek(s string) string {
 		if !isLatin {
 			if r == '*' {
 				upper = true
+				// for uppercase, diacritics should be prebuffered.
+				wasBase = false
 				continue
 			}
 
@@ -481,15 +486,38 @@ func ToGreek(s string) string {
 				} else {
 					out.WriteRune(c)
 				}
+
+				if pDiacritics != "" {
+					out.WriteString(pDiacritics)
+					pDiacritics = ""
+				}
+				wasBase = true
 				continue
 			} else if d, ok := diacritics[r]; ok {
-				out.WriteString(d)
+				if wasBase {
+					out.WriteString(d)
+				} else {
+					pDiacritics += d
+				}
+
 				continue
 			}
 		}
 
+		if pDiacritics != "" {
+			out.WriteString(pDiacritics)
+			pDiacritics = ""
+		}
+		wasBase = false
+
 		out.WriteRune(r)
 	}
+
+	if pDiacritics != "" {
+		out.WriteString(pDiacritics)
+		pDiacritics = ""
+	}
+
 	res := out.String()
 	// Hacky but works
 	res = regexp.MustCompile(`σ(\s|[[:punct:]]|$)`).ReplaceAllString(res, "ς$1")
