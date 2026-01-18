@@ -1,4 +1,6 @@
 bin
 dependencies
+pkg/tlgcore/tables.go
+UnicodeData.txt
 *.zip
 *.tar.gz

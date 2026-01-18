@@ -1,5 +1,9 @@
 #!/bin/rc
 
+hget https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt > UnicodeData.txt
+
+go run pkg/tlgcore/gentable.go
+
 echo 'build executables..'
 go build -o bin/indexer ./cmd/indexer
 go build -o bin/search ./cmd/search

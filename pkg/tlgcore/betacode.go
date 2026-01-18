@@ -2,127 +2,24 @@ package tlgcore
 
 import (
 	"bytes"
-	"golang.org/x/text/unicode/norm"
 	"regexp"
 	"strings"
 	"unicode"
 )
 
-var greekBase = map[rune]rune{
-	'a': 'α', 'b': 'β', 'g': 'γ', 'd': 'δ', 'e': 'ε', 'z': 'ζ', 'h': 'η', 'q': 'θ',
-	'i': 'ι', 'k': 'κ', 'l': 'λ', 'm': 'μ', 'n': 'ν', 'c': 'ξ', 'o': 'ο', 'p': 'π',
-	'r': 'ρ', 's': 'σ', 'j': 'ς', 't': 'τ', 'u': 'υ', 'f': 'φ', 'x': 'χ', 'y': 'ψ', 'w': 'ω',
-
-	'A': 'Α', 'B': 'Β', 'G': 'Γ', 'D': 'Δ', 'E': 'Ε', 'Z': 'Ζ', 'H': 'Η', 'Q': 'Θ',
-	'I': 'Ι', 'K': 'Κ', 'L': 'Λ', 'M': 'Μ', 'N': 'Ν', 'C': 'Ξ', 'O': 'Ο', 'P': 'Π',
-	'R': 'Ρ', 'S': 'Σ', 'J': 'Σ', 'T': 'Τ', 'U': 'Υ', 'F': 'Φ', 'X': 'Χ', 'Y': 'Ψ', 'W': 'Ω',
-}
-
-var diacritics = map[rune]string{
-	')': "\u0313", '(': "\u0314", '/': "\u0301", '\\': "\u0300",
-	'=': "\u0342", '+': "\u0308", '|': "\u0345",
-}
-
-var alphaBase = map[rune]string{
-	'α': "a", 'β': "b", 'γ': "g", 'δ': "d", 'ε': "e", 'ζ': "z", 'η': "h", 'θ': "q",
-	'ι': "i", 'κ': "k", 'λ': "l", 'μ': "m", 'ν': "n", 'ξ': "c", 'ο': "o", 'π': "p",
-	'ρ': "r", 'σ': "s", 'ς': "s", 'τ': "t", 'υ': "u", 'φ': "f", 'χ': "x", 'ψ': "y", 'ω': "w",
-
-	'ά': "a/", 'ὰ': "a\\", 'ᾶ': "a=",
-	'ἀ': "a)", 'ἄ': "a)/", 'ἂ': "a)\\", 'ἆ': "a)=",
-	'ἁ': "a(", 'ἅ': "a(/", 'ἃ': "a(\\", 'ἇ': "a(=",
-	'ᾳ': "a|",
-	'ᾴ': "a/|", 'ᾲ': "a\\|", 'ᾷ': "a=|",
-	'ᾀ': "a)|", 'ᾄ': "a)/|", 'ᾂ': "a)\\|", 'ᾆ': "a)=|",
-	'ᾁ': "a(|", 'ᾅ': "a(/|", 'ᾃ': "a(\\|", 'ᾇ': "a(=|",
-	'ᾱ': "a%", 'ᾰ': "a&",
-
-	'έ': "e/", 'ὲ': "e\\",
-	'ἐ': "e)", 'ἔ': "e)/", 'ἒ': "e)\\",
-	'ἑ': "e(", 'ἕ': "e(/", 'ἓ': "e(\\",
-
-	'ή': "h/", 'ὴ': "h\\", 'ῆ': "h=",
-	'ἠ': "h)", 'ἤ': "h)/", 'ἢ': "h)\\", 'ἦ': "h)=",
-	'ἡ': "h(", 'ἥ': "h(/", 'ἣ': "h(\\", 'ἧ': "h(=",
-	'ῃ': "h|",
-	'ῄ': "h/|", 'ῂ': "h\\|", 'ῇ': "h=|",
-	'ᾐ': "h)|", 'ᾔ': "h)/|", 'ᾒ': "h)\\|", 'ᾖ': "h)=|",
-	'ᾑ': "h(|", 'ᾕ': "h(/|", 'ᾓ': "h(\\|", 'ᾗ': "h(=|",
-
-	'ί': "i/", 'ὶ': "i\\", 'ῖ': "i=",
-	'ἰ': "i)", 'ἴ': "i)/", 'ἲ': "i)\\", 'ἶ': "i)=",
-	'ἱ': "i(", 'ἵ': "i(/", 'ἳ': "i(\\", 'ἷ': "i(=",
-	'ϊ': "i+", 'ΐ': "i+/", 'ῒ': "i+\\",
-	'ῑ': "i%", 'ῐ': "i&",
-	'ό': "o/", 'ὸ': "o\\",
-	'ὀ': "o)", 'ὄ': "o)/", 'ὂ': "o)\\",
-	'ὁ': "o(", 'ὅ': "o(/", 'ὃ': "o(\\",
-
-	'ύ': "u/", 'ὺ': "u\\", 'ῦ': "u=",
-	'ὐ': "u)", 'ὔ': "u)/", 'ὒ': "u)\\", 'ὖ': "u)=",
-	'ὑ': "u(", 'ὕ': "u(/", 'ὓ': "u(\\", 'ὗ': "u(=",
-	'ϋ': "u+", 'ΰ': "u+/", 'ῢ': "u+\\", 'ῧ': "u+=",
-	'ῡ': "u%", 'ῠ': "u&",
-
-	'ώ': "w/", 'ὼ': "w\\", 'ῶ': "w=",
-	'ὠ': "w)", 'ὤ': "w)/", 'ὢ': "w)\\", 'ὦ': "w)=",
-	'ὡ': "w(", 'ὥ': "w(/", 'ὣ': "w(\\", 'ὧ': "w(=",
-	'ῳ': "w|",
-	'ῴ': "w/|", 'ῲ': "w\\|", 'ῷ': "w=|",
-	'ᾠ': "w)|", 'ᾤ': "w)/|", 'ᾢ': "w)\\|", 'ᾦ': "w)=|",
-	'ᾡ': "w(|", 'ᾥ': "w(/|", 'ᾣ': "w(\\|", 'ᾧ': "w(=|",
-
-	'ῤ': "r)", 'ῥ': "r(",
-
-	'Α': "*a", 'Β': "*b", 'Γ': "*g", 'Δ': "*d", 'Ε': "*e", 'Ζ': "*z", 'Η': "*h", 'Θ': "*q",
-	'Ι': "*i", 'Κ': "*k", 'Λ': "*l", 'Μ': "*m", 'Ν': "*n", 'Ξ': "*c", 'Ο': "*o", 'Π': "*p",
-	'Ρ': "*r", 'Σ': "*s", 'Τ': "*t", 'Υ': "*u", 'Φ': "*f", 'Χ': "*x", 'Ψ': "*y", 'Ω': "*w",
-
-	'Ά': "*a/", 'Ὰ': "*a\\",
-	'Ἀ': "*a)", 'Ἄ': "*a)/", 'Ἂ': "*a)\\", 'Ἆ': "*a)=",
-	'Ἁ': "*a(", 'Ἅ': "*a(/", 'Ἃ': "*a(\\", 'Ἇ': "*a(=",
-	'ᾼ': "*a|",
-	'ᾈ': "*a)|", 'ᾌ': "*a)/|", 'ᾊ': "*a)\\|", 'ᾎ': "*a)=|",
-	'ᾉ': "*a(|", 'ᾍ': "*a(/|", 'ᾋ': "*a(\\|", 'ᾏ': "*a(=|",
-	'Ᾱ': "*a%", 'Ᾰ': "*a&",
-
-	'Έ': "*e/", 'Ὲ': "*e\\",
-	'Ἐ': "*e)", 'Ἔ': "*e)/", 'Ἒ': "*e)\\",
-	'Ἑ': "*e(", 'Ἕ': "*e(/", 'Ἓ': "*e(\\",
-
-	'Ή': "*h/", 'Ὴ': "*h\\",
-	'Ἠ': "*h)", 'Ἤ': "*h)/", 'Ἢ': "*h)\\", 'Ἦ': "*h)=",
-	'Ἡ': "*h(", 'Ἥ': "*h(/", 'Ἣ': "*h(\\", 'Ἧ': "*h(=",
-	'ῌ': "*h|",
-	'ᾘ': "*h)|", 'ᾜ': "*h)/|", 'ᾚ': "*h)\\|", 'ᾞ': "*h)=|",
-	'ᾙ': "*h(|", 'ᾝ': "*h(/|", 'ᾛ': "*h(\\|", 'ᾟ': "*h(=|",
-
-	'Ί': "*i/", 'Ὶ': "*i\\",
-	'Ἰ': "*i)", 'Ἴ': "*i)/", 'Ἲ': "*i)\\", 'Ἶ': "*i)=",
-	'Ἱ': "*i(", 'Ἵ': "*i(/", 'Ἳ': "*i(\\", 'Ἷ': "*i(=",
-	'Ϊ': "*i+",
-	'Ῑ': "*i%", 'Ῐ': "*i&",
-
-	'Ό': "*o/", 'Ὸ': "*o\\",
-	'Ὀ': "*o)", 'Ὄ': "*o)/", 'Ὂ': "*o)\\",
-	'Ὁ': "*o(", 'Ὅ': "*o(/", 'Ὃ': "*o(\\",
-
-	'Ύ': "*u/", 'Ὺ': "*u\\",
-	'὘': "*u)",
-	'Ὑ': "*u(", 'Ὕ': "*u(/", 'Ὓ': "*u(\\", 'Ὗ': "*u(=",
-	'Ϋ': "*u+",
-	'Ῡ': "*u%", 'Ῠ': "*u&",
-
-	'Ώ': "*w/", 'Ὼ': "*w\\",
-	'Ὠ': "*w)", 'Ὤ': "*w)/", 'Ὢ': "*w)\\", 'Ὦ': "*w)=",
-	'Ὡ': "*w(", 'Ὥ': "*w(/", 'Ὣ': "*w(\\", 'Ὧ': "*w(=",
-	'ῼ': "*w|",
-	'ᾨ': "*w)|", 'ᾬ': "*w)/|", 'ᾪ': "*w)\\|", 'ᾮ': "*w)=|",
-	'ᾩ': "*w(|", 'ᾭ': "*w(/|", 'ᾫ': "*w(\\|", 'ᾯ': "*w(=|",
-
-	'Ῥ': "*r(",
-
-	'·': ":", ';': "?", '’': "'",
+func getPriorDia(r rune) int {
+	switch r {
+	case '\u0313', '\u0314':
+		return 1 // Breathing
+	case '\u0308':
+		return 2 // Diaeresis
+	case '\u0300', '\u0301', '\u0342':
+		return 3 // Accent
+	case '\u0345':
+		return 4 // Iota Subscript
+	default:
+		return 99 // Not a diacritic
+	}
 }
 
 func parseCommand(runes []rune, start int) (string, int) {
@@ -474,12 +371,12 @@ func ToGreek(s string) string {
 		if !isLatin {
 			if r == '*' {
 				upper = true
-				// for uppercase, diacritics should be prebuffered.
+				// for uppercase, Diacritics should be prebuffered.
 				wasBase = false
 				continue
 			}
 
-			if c, ok := greekBase[unicode.ToLower(r)]; ok {
+			if c, ok := GreekBase[unicode.ToLower(r)]; ok {
 				if upper {
 					out.WriteRune(unicode.ToUpper(c))
 					upper = false
@@ -493,7 +390,7 @@ func ToGreek(s string) string {
 				}
 				wasBase = true
 				continue
-			} else if d, ok := diacritics[r]; ok {
+			} else if d, ok := Diacritics[r]; ok {
 				if wasBase {
 					out.WriteString(d)
 				} else {
@@ -519,10 +416,91 @@ func ToGreek(s string) string {
 	}
 
 	res := out.String()
-	// Hacky but works
 	res = regexp.MustCompile(`σ(\s|[[:punct:]]|$)`).ReplaceAllString(res, "ς$1")
-	res = norm.NFC.String(res)
+	res = NormalizeGreek(res)
 	return res
+}
+
+func NormalizeGreek(s string) string {
+	var out strings.Builder
+	runes := []rune(s)
+	n := len(runes)
+
+	for i := 0; i < n; i++ {
+		r := runes[i]
+
+		if getPriorDia(r) < 99 {
+			var dias []rune
+			j := i
+			for j < n && getPriorDia(runes[j]) < 99 {
+				dias = append(dias, runes[j])
+				j++
+			}
+
+			if j < n {
+				nextR := runes[j]
+				if unicode.IsLetter(nextR) {
+					composed := Compose(nextR, dias)
+					out.WriteRune(composed)
+					i = j
+					continue
+				}
+			}
+
+			out.WriteString(string(dias))
+			i = j - 1
+			continue
+		}
+
+		if i+1 < n && getPriorDia(runes[i+1]) < 99 {
+			base := r
+			var dias []rune
+			j := i + 1
+			for j < n && getPriorDia(runes[j]) < 99 {
+				dias = append(dias, runes[j])
+				j++
+			}
+
+			composed := Compose(base, dias)
+			out.WriteRune(composed)
+			i = j - 1
+			continue
+		}
+
+		out.WriteRune(r)
+	}
+
+	return out.String()
+}
+
+func Compose(base rune, diacritics []rune) rune {
+	if len(diacritics) == 0 {
+		return base
+	}
+	sortRunes(diacritics)
+
+	var sb strings.Builder
+	sb.WriteRune(base)
+	for _, d := range diacritics {
+		sb.WriteRune(d)
+	}
+
+	if val, ok := UnicodeComposition[sb.String()]; ok {
+		return val
+	}
+	return base
+}
+
+func sortRunes(r []rune) {
+	for i := 1; i < len(r); i++ {
+		key := r[i]
+		j := i - 1
+		for j >= 0 && getPriorDia(r[j]) > getPriorDia(key) {
+			r[j+1] = r[j]
+			j--
+		}
+		r[j+1] = key
+	}
 }
 
 func ToLatin(s string) string {
@@ -561,13 +539,7 @@ func ToLatin(s string) string {
 func ToBetaCode(s string) string {
 	var out strings.Builder
 	for _, r := range s {
-		if val, ok := alphaBase[r]; ok {
-			out.WriteString(val)
-			continue
-		}
-
-		lower := unicode.ToLower(r)
-		if val, ok := alphaBase[lower]; ok {
+		if val, ok := AlphaBase[r]; ok {
 			out.WriteString(val)
 		} else {
 			out.WriteRune(r)
