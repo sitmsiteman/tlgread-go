@@ -76,6 +76,14 @@ Add the folling rule to your `lib/plumbing`.
 
 ## Dependencies
 
+### Build
+
+On Unix/Linux, `curl` is required.
+
+### Runtime
+
+Polytonic Greek fonts (e.g. [Gentium](https://software.sil.org/gentium)).
+
 This project relies on prebuilt data files from [Diogenes](https://d.iogen.es/d) and the Perseus Project.
 
 To use `search`, you need the following files (obtainable from the prebuilt `diogenes` package):
