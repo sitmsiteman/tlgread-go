@@ -21,7 +21,7 @@ if (! test -d dependencies) {
 	echo 'get unxz..'
 	git/clone https://github.com/tukaani-project/xz-embedded
 	cp unxzmk xz-embedded/mkfile
-	cd xz-embedded;mk;cd ..
+	cd xz-embedded;mk install;cd ..
 	cat prebuilt.data.tar.xz | ./xz-embedded/unxz | tar x >[2=]
 
 	mv dependencies/data/grc.lsj.xml dependencies/
