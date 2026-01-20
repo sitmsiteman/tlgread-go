@@ -540,6 +540,10 @@ func ToBetaCode(s string) string {
 	var out strings.Builder
 	for _, r := range s {
 		if val, ok := AlphaBase[r]; ok {
+			if (r == 'ς') {
+				out.WriteString("s")
+				continue
+			}
 			out.WriteString(val)
 		} else {
 			out.WriteRune(r)
