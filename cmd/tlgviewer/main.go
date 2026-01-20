@@ -11,76 +11,6 @@ import (
 	"tlgread/pkg/tlgcore"
 )
 
-func getTitlesFromIDT(path string) map[string]string {
-	m := make(map[string]string)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return m
-	}
-
-	currentID := ""
-
-	for i := 0; i < len(data)-10; i++ {
-
-		// Work ID
-		// Spec: 02 [Len:2] [Block:2] EF 81 [ASCII-HighBit...] FF
-		// We look for the sequence: 02 ?? ?? ?? ?? EF 81
-		if data[i] == 0x02 && data[i+5] == 0xEF && data[i+6] == 0x81 {
-			// The ID string starts at i+7 and ends at 0xFF
-			start := i + 7
-			end := start
-			for end < len(data) && data[end] != 0xFF {
-				end++
-			}
-
-			if end < len(data) {
-				// Extract high-bit bytes and convert to ASCII
-				// e.g., 0xB0 -> '0'
-				var idBytes []byte
-				for k := start; k < end; k++ {
-					idBytes = append(idBytes, data[k]&0x7F)
-				}
-
-				// Normalize: "040" -> "40", "001" -> "1"
-				currentID = tlgcore.NormalizeID(string(idBytes))
-
-				// Advance loop past this block
-				i = end
-				continue
-			}
-		}
-
-		// WORK TITLE (Type 0x10)
-		// Spec: 10 01 [Len:1] [TitleString]
-		// 0x10 = Description, 0x01 = Level 'b' (Work)
-		if data[i] == 0x10 && data[i+1] == 0x01 {
-			length := int(data[i+2])
-			if length == 0 || length > 250 {
-				continue
-			}
-			if i+3+length > len(data) {
-				continue
-			}
-
-			rawTitle := string(data[i+3 : i+3+length])
-			cleanTitle := rawTitle
-
-			if strings.Contains(rawTitle, "*") {
-				cleanTitle = tlgcore.ToGreek(rawTitle)
-			} else {
-				cleanTitle = tlgcore.ToLatin(rawTitle)
-			}
-
-			if currentID != "" {
-				m[currentID] = cleanTitle
-			}
-
-			i += 2 + length
-		}
-	}
-	return m
-}
-
 func getAuthorName(path, tlgID string) string {
 	var prefixID string
 	data, err := os.ReadFile(path)
@@ -123,12 +53,18 @@ func main() {
 	tlgID := strings.TrimSuffix(base, filepath.Ext(base))
 
 	idtPath := filepath.Join(dir, tlgID+".idt")
-	titles := getTitlesFromIDT(idtPath)
+	idtData, err := tlgcore.ReadIDT(idtPath)
+
+	if err != nil {
+		fmt.Printf("Warning: Failed to read IDT file %s: %v\n", idtPath, err)
+		idtData = make(map[string]*tlgcore.WorkMetadata)
+	}
 
 	authPath := filepath.Join(dir, "authtab.dir")
 	author := getAuthorName(authPath, tlgID)
 
 	p := tlgcore.NewParser(f)
+	p.IDTData = idtData
 
 	latinBase := []string{"LAT", "CIV", "PHI"}
 
@@ -143,25 +79,34 @@ func main() {
 		fmt.Printf("File: %s (%s)\n", base, author)
 		fmt.Println("----------------------------------------")
 
-		works, err := p.ExtractList(titles)
+		works, err := p.ExtractList(idtData)
 		if err != nil {
 			log.Fatal(err)
 		}
 		for _, w := range works {
 			fmt.Println(w)
 		}
+
 	} else {
-		t := titles[*wID]
-		if t == "" {
-			t = titles[tlgcore.NormalizeID(*wID)]
+		cleanWID := tlgcore.NormalizeID(*wID)
+
+		title := "(Unknown Title)"
+		meta := idtData[cleanWID]
+		if meta != nil {
+			title = meta.Title
 		}
-		if t == "" {
-			t = "(Unknown Title)"
+
+		fmt.Printf("Author: %s\nWork:   %s (ID: %s)\n", author, title, cleanWID)
+
+		if meta != nil && len(meta.Citations) > 0 {
+			for _, c := range meta.Citations {
+				fmt.Printf("%s (%s) ", c.Label, c.LevelChar)
+			}
+			fmt.Printf("\n")
 		}
-		fmt.Printf("Author: %s\nWork:   %s (ID: %s)\n", author, t, *wID)
 		fmt.Println("----------------------------------------")
 
-		text, err := p.ExtractWork(*wID)
+		text, err := p.ExtractWork(cleanWID)
 		if err != nil {
 			fmt.Println("Error:", err)
 		} else {

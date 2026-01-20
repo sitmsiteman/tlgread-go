@@ -27,6 +27,9 @@ type Parser struct {
 	Buffer      []byte
 	Pos         int
 	IsLatinFile bool
+
+	IDTData     map[string]*WorkMetadata
+	CurrentMeta *WorkMetadata
 }
 
 func NewParser(f *os.File) *Parser {
@@ -56,7 +59,7 @@ func (p *Parser) ResetInternalState() {
 	}
 }
 
-func (p *Parser) ExtractList(idtTitles map[string]string) ([]string, error) {
+func (p *Parser) ExtractList(idtData map[string]*WorkMetadata) ([]string, error) {
 	p.ResetInternalState()
 
 	seenWorks := make(map[string]bool)
@@ -85,24 +88,18 @@ func (p *Parser) ExtractList(idtTitles map[string]string) ([]string, error) {
 				continue
 			}
 
-			currentID := workState.Binary
-			if currentID == 0 && workState.ASCII != "" {
-				if val, err := strconv.Atoi(workState.ASCII); err == nil {
-					currentID = val
-				}
-			}
-			workIDStr := strconv.Itoa(currentID)
-			if currentID == 0 {
+			currentID := p.getCurrentWorkID()
+			if currentID == "0" {
 				continue
 			}
 
-			if !seenWorks[workIDStr] {
-				seenWorks[workIDStr] = true
-				title := idtTitles[workIDStr]
-				if title == "" {
-					title = "(Unknown Title)"
+			if !seenWorks[currentID] {
+				seenWorks[currentID] = true
+				title := "(Unknown Title)"
+				if meta, ok := idtData[currentID]; ok {
+					title = meta.Title
 				}
-				line := fmt.Sprintf("ID:%-4s | %s", workIDStr, title)
+				line := fmt.Sprintf("ID:%-4s | %s", currentID, title)
 				results = append(results, line)
 			}
 		}
@@ -112,6 +109,10 @@ func (p *Parser) ExtractList(idtTitles map[string]string) ([]string, error) {
 
 func (p *Parser) ExtractWork(targetWorkID string) (string, error) {
 	p.ResetInternalState()
+
+	if p.IDTData != nil {
+		p.CurrentMeta = p.IDTData[targetWorkID]
+	}
 
 	var sb strings.Builder
 	targetInt, _ := strconv.Atoi(targetWorkID)
@@ -143,14 +144,13 @@ func (p *Parser) ExtractWork(targetWorkID string) (string, error) {
 				continue
 			}
 
-			currentID := workState.Binary
-			if currentID == 0 && workState.ASCII != "" {
-				if val, err := strconv.Atoi(workState.ASCII); err == nil {
-					currentID = val
-				}
+			currentID := p.getCurrentWorkID()
+			currentInt := 0
+			if val, err := strconv.Atoi(currentID); err == nil {
+				currentInt = val
 			}
 
-			if currentID == targetInt {
+			if currentID == targetWorkID || currentInt == targetInt {
 				found = true
 				output := p.ProcessText(text)
 				if strings.TrimSpace(output) != "" {
@@ -168,6 +168,21 @@ func (p *Parser) ExtractWork(targetWorkID string) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func (p *Parser) getCurrentWorkID() string {
+	st := p.Levels["b"]
+	if st.Binary > 0 {
+		return strconv.Itoa(st.Binary)
+	}
+	if st.ASCII != "" {
+		// Try to parse ASCII as int for normalization (e.g. "001" -> "1")
+		if val, err := strconv.Atoi(st.ASCII); err == nil {
+			return strconv.Itoa(val)
+		}
+		return st.ASCII
+	}
+	return "0"
 }
 
 func (p *Parser) parseIDByte() bool {
@@ -209,6 +224,7 @@ func (p *Parser) parseIDByte() bool {
 			level = "c"
 		case 4:
 			level = "d"
+		default:
 		}
 	case 0xF: // Special
 		if right == 0xE {
@@ -220,45 +236,57 @@ func (p *Parser) parseIDByte() bool {
 		return false
 	}
 
-	if level == "" {
-		return false
-	}
-	st := p.Levels[level]
-	st.Active = true
+	var binaryVal int
+	var asciiVal string
 
 	// Decode Value
 	switch right {
 	case 0x0:
-		st.Binary++
+		binaryVal = -1 // Signal increment
 	case 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7:
-		st.Binary = int(right)
-		st.ASCII = ""
+		binaryVal = int(right)
 	case 0x8:
-		st.Binary = p.readBin(1)
-		st.ASCII = ""
+		binaryVal = p.readBin(1)
 	case 0x9:
-		st.Binary = p.readBin(1)
-		st.ASCII = string(p.readChar())
+		binaryVal = p.readBin(1)
+		asciiVal = string(p.readChar())
 	case 0xA:
-		st.Binary = p.readBin(1)
-		st.ASCII = p.readStr()
+		binaryVal = p.readBin(1)
+		asciiVal = p.readStr()
 	case 0xB:
-		st.Binary = p.readBin(2)
-		st.ASCII = ""
+		binaryVal = p.readBin(2)
 	case 0xC:
-		st.Binary = p.readBin(2)
-		st.ASCII = string(p.readChar())
+		binaryVal = p.readBin(2)
+		asciiVal = string(p.readChar())
 	case 0xD:
-		st.Binary = p.readBin(2)
-		st.ASCII = p.readStr()
+		binaryVal = p.readBin(2)
+		asciiVal = p.readStr()
 	case 0xE:
-		st.ASCII = string(p.readChar())
+		asciiVal = string(p.readChar())
 	case 0xF:
-		st.Binary = 0
-		st.ASCII = p.readStr() // ASCII only
+		binaryVal = 0
+		asciiVal = p.readStr()
 	}
 
-	p.resetLevels(level)
+	if level != "" {
+		st := p.Levels[level]
+		oldActive := st.Active
+		oldBinary := st.Binary
+		oldASCII := st.ASCII
+
+		st.Active = true
+		if binaryVal == -1 {
+			st.Binary++
+		} else {
+			st.Binary = binaryVal
+			st.ASCII = asciiVal
+		}
+
+		if !oldActive || st.Binary != oldBinary || st.ASCII != oldASCII {
+			p.resetLevels(level)
+		}
+	}
+
 	return false
 }
 
@@ -335,42 +363,37 @@ func (p *Parser) readStr() string {
 
 func (p *Parser) formatCitation() string {
 	var pts []string
+	var levelsToCheck []string
 
-	// Define the order of levels to check
-	// We include 'n' because it often holds the rank/offset
-	order := []string{"v", "w", "n", "x", "y", "z"}
-	// order := []string{"v", "w", "z"}
+	if p.CurrentMeta != nil && len(p.CurrentMeta.Citations) > 0 {
+		for _, def := range p.CurrentMeta.Citations {
+			levelsToCheck = append(levelsToCheck, def.LevelChar)
+		}
+	} else {
+		levelsToCheck = []string{"w", "x", "y", "z"}
+	}
 
-	for _, l := range order {
+	for _, l := range levelsToCheck {
 		st := p.Levels[l]
-		if !st.Active {
+		if st == nil || !st.Active {
 			continue
 		}
 
 		s := st.ASCII
 		if st.Binary > 0 {
-			// --- Arithmetic hack ---
-			// Only perform '1 + b = c' if:
-			// 1. We have a single ASCII letter (a-e)
-			// 2. The binary offset is small (preventing mangling)
 			if len(st.ASCII) == 1 && st.ASCII[0] >= 'a' && st.ASCII[0] <= 'e' && st.Binary < 10 {
 				s = string(st.ASCII[0] + byte(st.Binary))
 			} else {
-				// Otherwise, keep them separate (e.g., "402" + "a" = "402a")
 				s = strconv.Itoa(st.Binary) + st.ASCII
 			}
 		}
 
 		if s != "" {
-			// Standard guard to skip the database index "1" at the start
-			if len(pts) == 0 && (l == "v" || l == "w") && s == "1" {
-				continue
-			}
 			pts = append(pts, s)
 		}
 	}
 
-	if len(pts) == 0 {
+	if len(pts) == 0 && p.Levels["z"].Active {
 		return p.Levels["z"].ASCII
 	}
 	return strings.Join(pts, ".")
