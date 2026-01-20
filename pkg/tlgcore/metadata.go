@@ -29,6 +29,8 @@ func ReadIDT(path string) (map[string]*WorkMetadata, error) {
 	pos := 0
 	var currentWork *WorkMetadata
 
+	// consumeID reads a sequence of bytes as long as they have the high bit set.
+	// TLG IDT files use high-bit bytes for ID data to distinguish from Type codes.
 	consumeID := func() []byte {
 		start := pos
 		for pos < len(data) && data[pos] >= 0x80 {
@@ -64,10 +66,12 @@ func ReadIDT(path string) (map[string]*WorkMetadata, error) {
 			// The ID String here contains the Work ID (Level b)
 			idBytes := consumeID()
 
-			// Decode the ID string to get the work number (e.g. "001")
-			idStr := decodeWorkID(idBytes)
+			idStr := DecodeWorkID(idBytes)
 			currentWork = &WorkMetadata{ID: idStr}
-			m[idStr] = currentWork
+
+			if idStr != "" {
+				m[idStr] = currentWork
+			}
 
 		case 3: // New Section (Type 3)
 			// Format: 03 [Block:2]
@@ -147,8 +151,7 @@ func ReadIDT(path string) (map[string]*WorkMetadata, error) {
 			}
 
 		default:
-			// Unknown Type code.
-			// fmt.Printf("Debug: Unknown IDT Opcode %02x at offset %d\n", typ, pos-1)
+			// Unknown Type code or sync error
 			continue
 		}
 	}
@@ -162,14 +165,123 @@ func cleanString(s string) string {
 	return ToLatin(s)
 }
 
-func decodeWorkID(b []byte) string {
-	idx := 0
-	if len(b) >= 2 && b[0] == 0xEF && b[1] == 0x81 {
-		idx = 2
+// DecodeWorkID parses the binary ID bytes to extract the Work ID (Level b).
+// It handles standard binary tags (Escape 0xE -> Level b) and extracts values.
+func DecodeWorkID(b []byte) string {
+	if len(b) == 0 {
+		return ""
 	}
 
+	// 1. Check for legacy ASCII string format (prefixed with EF 81)
+	if len(b) >= 2 && b[0] == 0xEF && b[1] == 0x81 {
+		return decodeSimpleASCII(b[2:])
+	}
+
+	// 2. Binary Parser state
+	pos := 0
+
+	readBin := func(n int) int {
+		v := 0
+		for i := 0; i < n; i++ {
+			if pos >= len(b) {
+				break
+			}
+			v = (v << 7) | int(b[pos]&0x7F)
+			pos++
+		}
+		return v
+	}
+
+	readStr := func() string {
+		var sb strings.Builder
+		for pos < len(b) {
+			val := b[pos]
+			// String ends at 0xFF or end of slice
+			if val == 0xFF {
+				pos++
+				break
+			}
+			sb.WriteByte(val & 0x7F)
+			pos++
+		}
+		return sb.String()
+	}
+
+	// Scan through the bytes looking for Level "b" assignment
+	for pos < len(b) {
+		val := b[pos]
+		pos++
+
+		left := (val >> 4) & 0x0F
+		right := val & 0x0F
+
+		isLevelB := false
+
+		// Determine Level
+		// Level 'b' is indicated by Escape (0xE) followed by 0x81 (which is 1 | 0x80)
+		if left == 0xE {
+			if pos < len(b) {
+				next := b[pos] & 0x7F
+				pos++
+				if next == 1 {
+					isLevelB = true
+				}
+			}
+		}
+
+		// Decode Value
+		var numVal int = -999
+		var strVal string
+
+		switch right {
+		case 0x0:
+			numVal = -1 // Auto-increment signal (unlikely for explicit IDT)
+		case 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7:
+			numVal = int(right)
+		case 0x8:
+			numVal = readBin(1)
+		case 0x9:
+			numVal = readBin(1)
+			strVal = string(readBin(1)) // effectively readChar
+		case 0xA:
+			numVal = readBin(1)
+			strVal = readStr()
+		case 0xB:
+			numVal = readBin(2)
+		case 0xC:
+			numVal = readBin(2)
+			strVal = string(readBin(1))
+		case 0xD:
+			numVal = readBin(2)
+			strVal = readStr()
+		case 0xE:
+			strVal = string(readBin(1)) // readChar
+		case 0xF:
+			strVal = readStr()
+		}
+
+		// If this was a Level B tag, return the value immediately
+		if isLevelB {
+			if strVal != "" {
+				if numVal != -999 && numVal != -1 {
+					return strconv.Itoa(numVal) + strVal
+				}
+				return strVal
+			}
+			if numVal != -999 {
+				return strconv.Itoa(numVal)
+			}
+		}
+	}
+
+	// 3. Fallback: If no binary tag for 'b' was found, try naive ASCII.
+	// This handles cases where ID is just a string without EF 81 prefix.
+	return decodeSimpleASCII(b)
+}
+
+func decodeSimpleASCII(b []byte) string {
 	var sb strings.Builder
-	for i := idx; i < len(b); i++ {
+	for i := 0; i < len(b); i++ {
 		if b[i] == 0xFF {
 			break
 		}
