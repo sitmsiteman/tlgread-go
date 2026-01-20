@@ -1,5 +1,5 @@
 all:
-	curl -OL https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt
+	if [ ! -e UnicodeData.txt ] ; then curl -OL https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt; fi
 	go run pkg/tlgcore/gentable.go
 	go build -o bin/indexer ./cmd/indexer
 	go build -o bin/search ./cmd/search
