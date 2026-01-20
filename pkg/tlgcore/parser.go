@@ -48,9 +48,74 @@ func (p *Parser) ProcessText(s string) string {
 	return ToGreek(s)
 }
 
-func (p *Parser) Run(targetWorkID string, listMode bool, idtTitles map[string]string) {
+func (p *Parser) ResetInternalState() {
+	p.File.Seek(0, 0)
+	p.Pos = 0
+	for k := range levelRank {
+		p.Levels[k] = &IDState{}
+	}
+}
+
+func (p *Parser) ExtractList(idtTitles map[string]string) ([]string, error) {
+	p.ResetInternalState()
+
 	seenWorks := make(map[string]bool)
+	var results []string
+
+	for {
+		n, err := p.File.Read(p.Buffer)
+		if n == 0 || err == io.EOF {
+			break
+		}
+		p.Pos = 0
+
+		for p.Pos < n {
+			b := p.Buffer[p.Pos]
+			if b&0x80 != 0 {
+				if p.parseIDByte() {
+					break
+				}
+				continue
+			}
+
+			_ = p.readText(n)
+
+			workState := p.Levels["b"]
+			if !workState.Active {
+				continue
+			}
+
+			currentID := workState.Binary
+			if currentID == 0 && workState.ASCII != "" {
+				if val, err := strconv.Atoi(workState.ASCII); err == nil {
+					currentID = val
+				}
+			}
+			workIDStr := strconv.Itoa(currentID)
+			if currentID == 0 {
+				continue
+			}
+
+			if !seenWorks[workIDStr] {
+				seenWorks[workIDStr] = true
+				title := idtTitles[workIDStr]
+				if title == "" {
+					title = "(Unknown Title)"
+				}
+				line := fmt.Sprintf("ID:%-4s | %s", workIDStr, title)
+				results = append(results, line)
+			}
+		}
+	}
+	return results, nil
+}
+
+func (p *Parser) ExtractWork(targetWorkID string) (string, error) {
+	p.ResetInternalState()
+
+	var sb strings.Builder
 	targetInt, _ := strconv.Atoi(targetWorkID)
+	found := false
 
 	for {
 		n, err := p.File.Read(p.Buffer)
@@ -84,31 +149,25 @@ func (p *Parser) Run(targetWorkID string, listMode bool, idtTitles map[string]st
 					currentID = val
 				}
 			}
-			workIDStr := strconv.Itoa(currentID)
-			if currentID == 0 {
-				continue
-			}
 
-			if listMode {
-				if !seenWorks[workIDStr] {
-					seenWorks[workIDStr] = true
-					title := idtTitles[workIDStr]
-					if title == "" {
-						title = "(Unknown Title)"
-					}
-					fmt.Printf("ID:%-4s | %s\n", workIDStr, title)
+			if currentID == targetInt {
+				found = true
+				output := p.ProcessText(text)
+				if strings.TrimSpace(output) != "" {
+					cit := p.formatCitation()
+					sb.WriteString(fmt.Sprintf("%-10s %s\n", cit, output))
 				}
-			} else {
-				if currentID == targetInt {
-					output := p.ProcessText(text)
-					if strings.TrimSpace(output) != "" {
-						cit := p.formatCitation()
-						fmt.Printf("%-10s %s\n", cit, output)
-					}
-				}
+			} else if found {
+				return sb.String(), nil
 			}
 		}
 	}
+
+	if sb.Len() == 0 {
+		return "", fmt.Errorf("work ID %s not found", targetWorkID)
+	}
+
+	return sb.String(), nil
 }
 
 func (p *Parser) parseIDByte() bool {

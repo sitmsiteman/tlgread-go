@@ -128,9 +128,28 @@ func main() {
 	authPath := filepath.Join(dir, "authtab.dir")
 	author := getAuthorName(authPath, tlgID)
 
+	p := tlgcore.NewParser(f)
+
+	latinBase := []string{"LAT", "CIV", "PHI"}
+
+	for _, pref := range latinBase {
+		if strings.HasPrefix(strings.ToUpper(base), pref) {
+			p.IsLatinFile = true
+			break
+		}
+	}
+
 	if *list {
 		fmt.Printf("File: %s (%s)\n", base, author)
 		fmt.Println("----------------------------------------")
+
+		works, err := p.ExtractList(titles)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, w := range works {
+			fmt.Println(w)
+		}
 	} else {
 		t := titles[*wID]
 		if t == "" {
@@ -141,13 +160,12 @@ func main() {
 		}
 		fmt.Printf("Author: %s\nWork:   %s (ID: %s)\n", author, t, *wID)
 		fmt.Println("----------------------------------------")
+
+		text, err := p.ExtractWork(*wID)
+		if err != nil {
+			fmt.Println("Error:", err)
+		} else {
+			fmt.Print(text)
+		}
 	}
-
-	p := tlgcore.NewParser(f)
-
-	if strings.HasPrefix(strings.ToUpper(base), "LAT") {
-		p.IsLatinFile = true
-	}
-
-	p.Run(*wID, *list, titles)
 }
