@@ -1,5 +1,8 @@
 #!/bin/rc
 
+mkdir -p /sys/lib/lyceum
+mkdir -p /$objtype/bin/lyceum
+
 if (! test -e UnicodeData.txt ) {
 	hget https://www.unicode.org/Public/17.0.0/ucd/UnicodeData.txt > UnicodeData.txt
 }
@@ -13,8 +16,7 @@ go build -o bin/tlgviewer ./cmd/tlgviewer
 go build -o bin/readauth ./cmd/readauth
 go build -o bin/lemmata ./cmd/lemmata
 
-echo 'copying scripts...'
-cp scripts/plan9/* bin/
+cp scripts/plan9/* /$objtype/bin/lyceum
 
 if (! test -d dependencies) {
 	echo 'fetch dependencies..'
@@ -39,4 +41,22 @@ if (! test -d dependencies) {
 }
 
 cd dependencies && ../bin/indexer -f grc.lsj.xml -o lsj.idt && ../bin/indexer -f lat.ls.perseus-eng1.xml -o ls.idt
+
+echo 'copying executables..'
+dircp bin /$objtype/bin/lyceum
+
+mkdir -p /sys/lib/lyceum/dependencies
+mkdir -p /sys/lib/lyceum/data
+
+echo 'installing dependencies..'
+
+dircp dependencies /sys/lib/lyceum/dependencies
+
+if ( -d TLG ) {
+	dircp TLG /sys/lib/lyceum/
+} else {
+	echo 'Manually move the TLG-E, PHI-5, etc. directories to /sys/lib/lyceum'
+}
+
+echo 'done'
 

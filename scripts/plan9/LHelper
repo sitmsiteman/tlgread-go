@@ -1,10 +1,9 @@
 #!/bin/rc
 
-tlgdir=$home/TLG/TLG-E
-execdir=$home/git/tlgread-go
+$TLGDIR=/sys/lib/lyceum/TLG-E
 text=`{echo $1 | tr A-Z a-z}
 
-$execdir/bin/tlgviewer -f $tlgdir/$text'.txt' -list | plumb -i -d edit -a filename'='$tlgdir/$text.txt
+/bin/lyceum/tlgviewer -f $TLGDIR/$text'.txt' -list | plumb -i -d edit -a filename'='$TLGDIR/$text.txt
 
-echo $tlgdir/$text.txt > /tmp/Twork
+echo $TLGDIR/$text.txt > /tmp/Twork
 

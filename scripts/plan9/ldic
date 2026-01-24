@@ -1,10 +1,10 @@
 #!/bin/rc
 
-EXECROOT=$home/git/tlgread-go
+LYCROOT=/sys/lib/lyceum
 
-LAAN=$EXECROOT/dependencies/latin-analyses.txt
-LAANIDT=$EXECROOT/dependencies/latin-analyses.idt
-LS=$EXECROOT/dependencies/lat.ls.perseus-eng1.xml
-LSIDT=$EXECROOT/dependencies/ls.idt
+LAAN=$LYCROOT/dependencies/latin-analyses.txt
+LAANIDT=$LYCROOT/dependencies/latin-analyses.idt
+LS=$LYCROOT/dependencies/lat.ls.perseus-eng1.xml
+LSIDT=$LYCROOT/dependencies/ls.idt
 
-$EXECROOT/bin/search -a $LAAN -idt $LAANIDT -dic $LS -dicidt $LSIDT -lat -w $*
+/bin/lyceum/search -a $LAAN -idt $LAANIDT -dic $LS -dicidt $LSIDT -lat -w $*

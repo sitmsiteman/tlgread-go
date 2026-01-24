@@ -1,10 +1,10 @@
 #!/bin/rc
 
-EXECROOT=$home/git/tlgread-go
+LYCROOT=/sys/lib/lyceum
 
-GRAN=$EXECROOT/dependencies/greek-analyses.txt
-GRANIDT=$EXECROOT/dependencies/greek-analyses.idt
-LSJ=$EXECROOT/dependencies/grc.lsj.xml
-LSJIDT=$EXECROOT/dependencies/lsj.idt
+GRAN=$LYCROOT/dependencies/greek-analyses.txt
+GRANIDT=$LYCROOT/dependencies/greek-analyses.idt
+LSJ=$LYCROOT/dependencies/grc.lsj.xml
+LSJIDT=$LYCROOT/dependencies/lsj.idt
 
-$EXECROOT/bin/search -a $GRAN -idt $GRANIDT -dic $LSJ -dicidt $LSJIDT -w $*
+/bin/lyceum/search -a $GRAN -idt $GRANIDT -dic $LSJ -dicidt $LSJIDT -w $*

@@ -1,0 +1,16 @@
+#!/bin/rc
+
+# Open Authtab
+
+phidir=/sys/lib/lyceum/PHI-5
+
+cd /mnt/acme/new
+echo name AUTHTAB >ctl
+echo nomenu >ctl
+echo nomark >ctl
+echo noscroll >ctl
+
+/bin/lyceum/readauth -f $phidir/authtab.dir > body
+
+echo clean >ctl
+
